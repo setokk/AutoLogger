@@ -23,6 +23,9 @@ public class AutoLoggerMojo  extends AbstractMojo {
     @Parameter(defaultValue = "${project}", required = true, readonly = true)
     MavenProject project;
 
+    @Parameter(defaultValue = "LOGGER")
+    String loggerFieldName;
+
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
         String classesDir = project.getBuild().getOutputDirectory();
@@ -56,23 +59,35 @@ public class AutoLoggerMojo  extends AbstractMojo {
             classPool.insertClassPath(classesDir); // Project files
             classPool.appendClassPath(new LoaderClassPath(getClass().getClassLoader())); // External dependencies
             for (File file : classes) {
-                String className = getClassName(file, classesDir);
+                String className = AutoLoggerUtil.getClassName(file, classesDir);
                 CtClass ctClass = classPool.get(className);
                 if (!ctClass.hasAnnotation(AutoLog.class)) {
                     continue;
                 }
+
+                if (AutoLoggerUtil.fieldNotExists(ctClass, loggerFieldName)) {
+                    CtField loggerField = CtField.make(String.format(
+                            "private static final org.apache.logging.log4j.Logger %s = " +
+                                    "org.apache.logging.log4j.LogManager.getLogger(%s.class);",
+                                    loggerFieldName,
+                                    ctClass.getSimpleName()
+                            ),
+                            ctClass
+                    );
+                    ctClass.addField(loggerField);
+                }
+
                 AutoLog annotation = (AutoLog) ctClass.getAnnotation(AutoLog.class);
-                CtField loggerField = CtField.make(
-                        "private static final org.apache.logging.log4j.Logger LOGGER = " +
-                                "org.apache.logging.log4j.LogManager.getLogger(" + ctClass.getSimpleName() + ".class);",
-                        ctClass
-                );
-                ctClass.addField(loggerField);
                 for (CtMethod method : ctClass.getDeclaredMethods()) {
                     boolean isMethodExcluded = Arrays.stream(annotation.excludedMethods()).anyMatch(m -> m.equals(method.getName()));
                     if (isMethodExcluded) {
                         continue;
                     }
+
+                    if (!annotation.logPrivateMethods() && Modifier.isPrivate(method.getModifiers())) {
+                        continue;
+                    }
+
                     String loggerMsgBefore = annotation.beforeMsgPattern()
                             .replace(AutoLog.CLASS_PLACEHOLDER, ctClass.getSimpleName())
                             .replace(AutoLog.METHOD_PLACEHOLDER, method.getName());
@@ -81,14 +96,14 @@ public class AutoLoggerMojo  extends AbstractMojo {
                             .replace(AutoLog.METHOD_PLACEHOLDER, method.getName());
                     String logLevel = annotation.level().name().toLowerCase();
 
-                    method.insertBefore(String.format("LOGGER.%s(\"%s\");", logLevel, loggerMsgBefore));
+                    method.insertBefore(String.format("%s.%s(\"%s\");", loggerFieldName, logLevel, loggerMsgBefore));
                     String timeTaken = "\"\"";
                     if (annotation.debugEnabled()) {
                         method.addLocalVariable("start", CtPrimitiveType.longType);
                         method.insertBefore("start = System.currentTimeMillis();");
                         timeTaken = "\", time taken: \" + String.valueOf((System.currentTimeMillis() - start) / 1000.0) + \"s\"";
                     }
-                    method.insertAfter(String.format("LOGGER.%s(\"%s\" + %s);", logLevel, loggerMsgAfter, timeTaken), false);
+                    method.insertAfter(String.format("%s.%s(\"%s\" + %s);", loggerFieldName, logLevel, loggerMsgAfter, timeTaken), false);
                 }
                 ctClass.writeFile(classesDir);
                 getLog().info("Add logger to class: " + ctClass.getSimpleName());
@@ -96,11 +111,5 @@ public class AutoLoggerMojo  extends AbstractMojo {
         } catch (Exception e) {
             getLog().error("Error modifying classes", e);
         }
-    }
-
-    private String getClassName(File classFile, String classesDir) {
-        String relativePath = classFile.getAbsolutePath().replace(classesDir, "")
-                .replace(File.separator, ".").replace(".class", "");
-        return relativePath.startsWith(".") ? relativePath.substring(1) : relativePath;
     }
 }

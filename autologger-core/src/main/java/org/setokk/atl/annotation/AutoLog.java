@@ -9,10 +9,10 @@ import java.lang.annotation.Target;
 @Target({ElementType.TYPE})
 public @interface AutoLog {
     LogLevel level() default LogLevel.INFO;
-    String pattern() default "%d{yyyy-MM-dd HH:mm:ss} [%t] %-5level - %msg%n";
     String beforeMsgPattern() default CLASS_PLACEHOLDER + "->" + METHOD_PLACEHOLDER + " - ENTER";
     String afterMsgPattern() default CLASS_PLACEHOLDER + "->" + METHOD_PLACEHOLDER + " - LEAVE";
     String[] excludedMethods() default {};
+    boolean logPrivateMethods() default false;
     boolean debugEnabled() default false;
 
     String CLASS_PLACEHOLDER = "%CLASS";
