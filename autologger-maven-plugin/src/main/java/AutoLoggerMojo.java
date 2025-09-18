@@ -24,7 +24,10 @@ public class AutoLoggerMojo  extends AbstractMojo {
     MavenProject project;
 
     @Parameter(defaultValue = "LOGGER")
-    String loggerFieldName;
+    String loggerName;
+
+    @Parameter(defaultValue = "log4j")
+    String loggerImplementation;
 
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
@@ -65,15 +68,16 @@ public class AutoLoggerMojo  extends AbstractMojo {
                     continue;
                 }
 
-                if (AutoLoggerUtil.fieldNotExists(ctClass, loggerFieldName)) {
-                    CtField loggerField = CtField.make(String.format(
-                            "private static final org.apache.logging.log4j.Logger %s = " +
-                                    "org.apache.logging.log4j.LogManager.getLogger(%s.class);",
-                                    loggerFieldName,
-                                    ctClass.getSimpleName()
-                            ),
-                            ctClass
-                    );
+                if (AutoLoggerUtil.fieldNotExists(ctClass, loggerName)) {
+                    LoggerImplementation loggerImplementationEnum = LoggerImplementation.valueOf(loggerImplementation.toUpperCase());
+                    CtField loggerField = switch (loggerImplementationEnum) {
+                        case LoggerImplementation.LOG4J -> CtField.make(
+                                String.format("private static final org.apache.logging.log4j.Logger %s = " +
+                                                "org.apache.logging.log4j.LogManager.getLogger(%s.class);",
+                                        loggerName, ctClass.getSimpleName()
+                                ), ctClass
+                        );
+                    };
                     ctClass.addField(loggerField);
                 }
 
@@ -84,7 +88,7 @@ public class AutoLoggerMojo  extends AbstractMojo {
                         continue;
                     }
 
-                    if (!annotation.logPrivateMethods() && Modifier.isPrivate(method.getModifiers())) {
+                    if (!annotation.privateMethodsEnabled() && Modifier.isPrivate(method.getModifiers())) {
                         continue;
                     }
 
@@ -96,14 +100,14 @@ public class AutoLoggerMojo  extends AbstractMojo {
                             .replace(AutoLog.METHOD_PLACEHOLDER, method.getName());
                     String logLevel = annotation.level().name().toLowerCase();
 
-                    method.insertBefore(String.format("%s.%s(\"%s\");", loggerFieldName, logLevel, loggerMsgBefore));
+                    method.insertBefore(String.format("%s.%s(\"%s\");", loggerName, logLevel, loggerMsgBefore));
                     String timeTaken = "\"\"";
                     if (annotation.debugEnabled()) {
                         method.addLocalVariable("start", CtPrimitiveType.longType);
                         method.insertBefore("start = System.currentTimeMillis();");
                         timeTaken = "\", time taken: \" + String.valueOf((System.currentTimeMillis() - start) / 1000.0) + \"s\"";
                     }
-                    method.insertAfter(String.format("%s.%s(\"%s\" + %s);", loggerFieldName, logLevel, loggerMsgAfter, timeTaken), false);
+                    method.insertAfter(String.format("%s.%s(\"%s\" + %s);", loggerName, logLevel, loggerMsgAfter, timeTaken), false);
                 }
                 ctClass.writeFile(classesDir);
                 getLog().info("Add logger to class: " + ctClass.getSimpleName());

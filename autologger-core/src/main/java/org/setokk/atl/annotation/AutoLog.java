@@ -12,7 +12,7 @@ public @interface AutoLog {
     String beforeMsgPattern() default CLASS_PLACEHOLDER + "->" + METHOD_PLACEHOLDER + " - ENTER";
     String afterMsgPattern() default CLASS_PLACEHOLDER + "->" + METHOD_PLACEHOLDER + " - LEAVE";
     String[] excludedMethods() default {};
-    boolean logPrivateMethods() default false;
+    boolean privateMethodsEnabled() default false;
     boolean debugEnabled() default false;
 
     String CLASS_PLACEHOLDER = "%CLASS";
