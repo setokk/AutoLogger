@@ -30,7 +30,7 @@ public class AutoLoggerMojo  extends AbstractMojo {
     String loggerImplementation;
 
     @Override
-    public void execute() throws MojoExecutionException, MojoFailureException {
+    public void execute() throws MojoExecutionException {
         String classesDir = project.getBuild().getOutputDirectory();
         File root = new File(classesDir);
         if (!root.exists()) {
@@ -56,9 +56,9 @@ public class AutoLoggerMojo  extends AbstractMojo {
         }
     }
 
-    private void addLoggersToClasses(List<File> classes, String classesDir) {
+    private void addLoggersToClasses(List<File> classes, String classesDir) throws MojoExecutionException {
         try {
-            ClassPool classPool = ClassPool.getDefault();
+            ClassPool classPool = new ClassPool(true);
             classPool.insertClassPath(classesDir); // Project files
             classPool.appendClassPath(new LoaderClassPath(getClass().getClassLoader())); // External dependencies
             for (File file : classes) {
@@ -68,13 +68,17 @@ public class AutoLoggerMojo  extends AbstractMojo {
                     continue;
                 }
 
+                if (ctClass.isFrozen()) {
+                    ctClass.defrost();
+                }
+
                 if (AutoLoggerUtil.fieldNotExists(ctClass, loggerName)) {
                     LoggerImplementation loggerImplementationEnum = LoggerImplementation.valueOf(loggerImplementation.toUpperCase());
                     CtField loggerField = switch (loggerImplementationEnum) {
                         case LoggerImplementation.LOG4J -> CtField.make(
                                 String.format("private static final org.apache.logging.log4j.Logger %s = " +
                                                 "org.apache.logging.log4j.LogManager.getLogger(%s.class);",
-                                        loggerName, ctClass.getSimpleName()
+                                        loggerName, ctClass.getName()
                                 ), ctClass
                         );
                     };
@@ -88,32 +92,35 @@ public class AutoLoggerMojo  extends AbstractMojo {
                         continue;
                     }
 
-                    if (!annotation.privateMethodsEnabled() && Modifier.isPrivate(method.getModifiers())) {
+                    if (annotation.ignorePrivateMethods() && Modifier.isPrivate(method.getModifiers())) {
                         continue;
                     }
 
-                    String loggerMsgBefore = annotation.beforeMsgPattern()
-                            .replace(AutoLog.CLASS_PLACEHOLDER, ctClass.getSimpleName())
+                    String loggerMsgOnEnter = annotation.onEnterMsgPattern()
+                            .replace(AutoLog.CLASS_PLACEHOLDER, ctClass.getName())
                             .replace(AutoLog.METHOD_PLACEHOLDER, method.getName());
-                    String loggerMsgAfter = annotation.afterMsgPattern()
-                            .replace(AutoLog.CLASS_PLACEHOLDER, ctClass.getSimpleName())
-                            .replace(AutoLog.METHOD_PLACEHOLDER, method.getName());
-                    String logLevel = annotation.level().name().toLowerCase();
 
-                    method.insertBefore(String.format("%s.%s(\"%s\");", loggerName, logLevel, loggerMsgBefore));
+                    String loggerMsgOnExit = annotation.onExitMsgPattern()
+                            .replace(AutoLog.CLASS_PLACEHOLDER, ctClass.getName())
+                            .replace(AutoLog.METHOD_PLACEHOLDER, method.getName());
+
+                    String logLevel = annotation.level().name().toLowerCase();
+                    method.insertBefore(String.format("%s.%s(\"%s\");", loggerName, logLevel, loggerMsgOnEnter));
+
                     String timeTaken = "\"\"";
                     if (annotation.debugEnabled()) {
                         method.addLocalVariable("start", CtPrimitiveType.longType);
                         method.insertBefore("start = System.currentTimeMillis();");
                         timeTaken = "\", time taken: \" + String.valueOf((System.currentTimeMillis() - start) / 1000.0) + \"s\"";
                     }
-                    method.insertAfter(String.format("%s.%s(\"%s\" + %s);", loggerName, logLevel, loggerMsgAfter, timeTaken), false);
+                    method.insertAfter(String.format("%s.%s(\"%s\" + %s);", loggerName, logLevel, loggerMsgOnExit, timeTaken), false);
                 }
                 ctClass.writeFile(classesDir);
-                getLog().info("Add logger to class: " + ctClass.getSimpleName());
+                ctClass.detach();
+                getLog().info("Add logger to class: " + ctClass.getName());
             }
         } catch (Exception e) {
-            getLog().error("Error modifying classes", e);
+            throw new MojoExecutionException("Error modifying classes", e);
         }
     }
 }
