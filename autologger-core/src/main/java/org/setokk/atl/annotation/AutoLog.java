@@ -17,7 +17,4 @@ public @interface AutoLog {
 
     String CLASS_PLACEHOLDER = "%CLASS";
     String METHOD_PLACEHOLDER = "%METHOD";
-    enum LogLevel {
-        INFO, WARN, ERROR, FATAL, DEBUG, TRACE
-    }
 }

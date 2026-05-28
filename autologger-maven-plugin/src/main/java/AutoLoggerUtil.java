@@ -5,8 +5,11 @@ import java.io.File;
 
 public class AutoLoggerUtil {
     public static String getClassName(File classFile, String classesDir) {
-        String relativePath = classFile.getAbsolutePath().replace(classesDir, "")
-                .replace(File.separator, ".").replace(".class", "");
+        String relativePath = classFile.getAbsolutePath()
+                .replace(classesDir, "")
+                .replace(File.separator, ".")
+                .replace(".class", "");
+
         return relativePath.startsWith(".") ? relativePath.substring(1) : relativePath;
     }
 

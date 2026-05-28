@@ -1,8 +1,9 @@
+import org.apache.maven.artifact.Artifact;
+import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.setokk.atl.annotation.AutoLog;
 import javassist.*;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
-import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
@@ -18,10 +19,17 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-@Mojo(name = "add-loggers", defaultPhase = LifecyclePhase.PROCESS_CLASSES)
-public class AutoLoggerMojo  extends AbstractMojo {
+@Mojo(
+        name = "add-loggers",
+        defaultPhase = LifecyclePhase.PROCESS_CLASSES,
+        requiresDependencyResolution = ResolutionScope.COMPILE
+)
+public class AutoLoggerMojo extends AbstractMojo {
     @Parameter(defaultValue = "${project}", required = true, readonly = true)
     MavenProject project;
+
+    @Parameter(defaultValue = "${project.compileClasspathElements}", readonly = true)
+    List<String> classpath;
 
     @Parameter(defaultValue = "LOGGER")
     String loggerName;
@@ -58,9 +66,16 @@ public class AutoLoggerMojo  extends AbstractMojo {
 
     private void addLoggersToClasses(List<File> classes, String classesDir) throws MojoExecutionException {
         try {
-            ClassPool classPool = new ClassPool(true);
+            ClassPool classPool = new ClassPool(false);
+
             classPool.insertClassPath(classesDir); // Project files
+
+            for (String c : classpath) {
+                classPool.insertClassPath(c);
+            }
+
             classPool.appendClassPath(new LoaderClassPath(getClass().getClassLoader())); // External dependencies
+
             for (File file : classes) {
                 String className = AutoLoggerUtil.getClassName(file, classesDir);
                 CtClass ctClass = classPool.get(className);
