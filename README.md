@@ -37,9 +37,6 @@ When called, these methods will produce the output:
 2025-02-08 18:14:38 [Main.main()] INFO  - UserService->registerUser - LEAVE, time taken: 2.009s
 ```
 ### Importing on Maven
-While right now the specific version of log4j cannot be modified, 
-it will be possible to do so in the future.
-
 Dependencies section:
 ```xml
 <dependencies>
@@ -48,22 +45,7 @@ Dependencies section:
         <artifactId>autologger-core</artifactId>
         <version>1.0-SNAPSHOT</version>
     </dependency>
-    <dependency>
-        <groupId>org.apache.logging.log4j</groupId>
-        <artifactId>log4j-api</artifactId>
-        <version>2.24.3</version>
-    </dependency>
-    <dependency>
-        <groupId>org.apache.logging.log4j</groupId>
-        <artifactId>log4j-core</artifactId>
-        <version>2.24.3</version>
-    </dependency>
-    <dependency>
-        <groupId>org.apache.logging.log4j</groupId>
-        <artifactId>log4j-slf4j-impl</artifactId>
-        <version>2.24.3</version>
-        <scope>test</scope>
-    </dependency>
+    <!-- Logger Implementation Dependencies (SLF4J, LOG4J, etc.) -->
 </dependencies>
 ```
 Plugins section:
@@ -74,6 +56,19 @@ Plugins section:
         <groupId>org.setokk.atl</groupId>
         <artifactId>autologger-maven-plugin</artifactId>
         <version>1.0-SNAPSHOT</version>
+
+        <configuration>
+            <!-- Optional: name for logger fields (ex. "log", "logger", "LOGGER", etc.) -->
+            <!-- Default: "log" -->
+            <!-- REMOVE: if unused -->
+            <loggerName></loggerName>
+
+            <!-- Optional: logger api library (ex. "SLF4J", "LOG4J", etc.) -->
+            <!-- Default: "LOG4J_2" -->
+            <!-- REMOVE: if unused -->
+            <loggerApi>SLF4J</loggerApi>
+        </configuration>
+        
         <executions>
             <execution>
                 <id>auto-run-logger</id>

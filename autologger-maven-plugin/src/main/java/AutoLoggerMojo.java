@@ -1,4 +1,3 @@
-import org.apache.maven.artifact.Artifact;
 import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.setokk.atl.annotation.AutoLog;
 import javassist.*;
@@ -35,7 +34,7 @@ public class AutoLoggerMojo extends AbstractMojo {
     String loggerName;
 
     @Parameter(defaultValue = "LOG4J_2")
-    String loggerImplementation;
+    LoggerApi loggerApi;
 
     @Override
     public void execute() throws MojoExecutionException {
@@ -88,9 +87,8 @@ public class AutoLoggerMojo extends AbstractMojo {
                 }
 
                 if (AutoLoggerUtil.fieldNotExists(ctClass, loggerName)) {
-                    LoggerImplementation loggerImplementationEnum = LoggerImplementation.valueOf(loggerImplementation.toUpperCase());
                     CtField loggerField = CtField.make(
-                            loggerImplementationEnum.formattedInitializer(loggerName, ctClass.getName()),
+                            loggerApi.formattedInitializer(loggerName, ctClass.getName()),
                             ctClass
                     );
                     ctClass.addField(loggerField);

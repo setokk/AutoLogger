@@ -1,4 +1,4 @@
-public enum LoggerImplementation {
+public enum LoggerApi {
     LOG4J_1(
             "org.apache.log4j.Logger",
             "org.apache.log4j.Logger.getLogger(%s.class)"
@@ -7,7 +7,7 @@ public enum LoggerImplementation {
             "org.apache.logging.log4j.Logger",
             "org.apache.logging.log4j.LogManager.getLogger(%s.class)"
     ),
-    SLF4J_OR_LOGBACK(
+    SLF4J(
             "org.slf4j.Logger",
             "org.slf4j.LoggerFactory.getLogger(%s.class)"
     ),
@@ -36,7 +36,7 @@ public enum LoggerImplementation {
     private final String factoryMethod;
     private final String initializer;
 
-    LoggerImplementation(String fieldType, String factoryMethod) {
+    LoggerApi(String fieldType, String factoryMethod) {
         this.fieldType = fieldType;
         this.factoryMethod = factoryMethod;
         this.initializer = fieldType + " %s = " + factoryMethod + ";";
