@@ -31,10 +31,10 @@ public class AutoLoggerMojo extends AbstractMojo {
     @Parameter(defaultValue = "${project.compileClasspathElements}", readonly = true)
     List<String> classpath;
 
-    @Parameter(defaultValue = "LOGGER")
+    @Parameter(defaultValue = "log")
     String loggerName;
 
-    @Parameter(defaultValue = "log4j")
+    @Parameter(defaultValue = "LOG4J_2")
     String loggerImplementation;
 
     @Override
@@ -89,14 +89,10 @@ public class AutoLoggerMojo extends AbstractMojo {
 
                 if (AutoLoggerUtil.fieldNotExists(ctClass, loggerName)) {
                     LoggerImplementation loggerImplementationEnum = LoggerImplementation.valueOf(loggerImplementation.toUpperCase());
-                    CtField loggerField = switch (loggerImplementationEnum) {
-                        case LoggerImplementation.LOG4J -> CtField.make(
-                                String.format("private static final org.apache.logging.log4j.Logger %s = " +
-                                                "org.apache.logging.log4j.LogManager.getLogger(%s.class);",
-                                        loggerName, ctClass.getName()
-                                ), ctClass
-                        );
-                    };
+                    CtField loggerField = CtField.make(
+                            loggerImplementationEnum.formattedInitializer(loggerName, ctClass.getName()),
+                            ctClass
+                    );
                     ctClass.addField(loggerField);
                 }
 
